@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Study Notes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=Courier+Prime&display=swap" rel="stylesheet">
+    <!-- Mermaid JS for Diagrams -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js"></script>
+    <style>
+        :root {
+            --paper-color: #fdfdf6;
+            --line-color: #a4b0be;
+            --margin-color: #ff6b6b;
+            
+            /* Smart Pen Palette */
+            --ink-main: #1a237e;     /* Deep Blue for main text */
+            --ink-accent: #c0392b;   /* Teacher Red for headers/corrections */
+            --ink-sketch: #2d3436;   /* Pencil/Charcoal for diagrams */
+            --ink-note: #27ae60;     /* Green for side notes/analogies */
+            --highlight: rgba(255, 241, 118, 0.7);
+            
+            --pencil-color: #57606f;
+        }
+
+        body {
+            background-color: #555;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            font-family: 'Kalam', cursive;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* --- Notebook Page Structure --- */
+        .notebook-page {
+            background-color: var(--paper-color);
+            width: 100%;
+            max-width: 900px;
+            min-height: 90vh;
+            box-shadow: 1px 1px 0px rgba(0,0,0,0.1), 10px 10px 20px rgba(0,0,0,0.2);
+            position: relative;
+            /* Authentic Lined Paper Pattern */
+            background-image: 
+                linear-gradient(90deg, transparent 79px, var(--margin-color) 79px, var(--margin-color) 81px, transparent 81px),
+                linear-gradient(var(--line-color) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 2rem;
+            background-attachment: local;
+            padding: 4rem 2rem 4rem 6rem;
+            color: var(--ink-main);
+            border-radius: 2px;
+            overflow: hidden; /* Keeps drawings inside */
+        }
+        
+        .notebook-page::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .content-layer { position: relative; z-index: 1; }
+
+        /* --- Input Section (Sticky Note) --- */
+        .sticky-note {
+            background-color: #ffeb3b;
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 500px;
+            margin: 1rem auto 3rem auto;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            transform: rotate(-1.5deg);
+            transition: transform 0.3s ease;
+            position: relative;
+            font-family: 'Kalam', cursive;
+        }
+        .sticky-note:hover { transform: rotate(0deg) scale(1.02); z-index: 10; }
+        
+        /* Realistic tape effect on sticky note */
+        .sticky-note::before {
+            content: "";
+            position: absolute;
+            top: -15px; left: 50%; transform: translateX(-50%);
+            width: 100px; height: 30px;
+            background-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        textarea {
+            width: 100%; background: transparent; border: none; outline: none;
+            font-family: 'Courier Prime', monospace; font-size: 0.9rem;
+            resize: vertical; color: #333; border-bottom: 1px dashed rgba(0,0,0,0.2);
+        }
+
+        /* --- Buttons --- */
+        .action-btn {
+            background: #333; color: white; font-family: 'Kalam', cursive;
+            padding: 0.5rem 1.5rem; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+            border: none; cursor: pointer; font-size: 1.2rem; width: 100%; margin-top: 10px;
+            transition: transform 0.2s;
+        }
+        .action-btn:hover { transform: scale(1.02); }
+        .action-btn:disabled { background: #999; cursor: wait; }
+
+        .ai-tools {
+            display: flex; gap: 10px; margin-top: 2rem; justify-content: flex-end;
+            padding-bottom: 1rem; border-bottom: 2px dashed rgba(0,0,0,0.1);
+        }
+        .tool-btn {
+            background: transparent; border: 2px solid var(--pencil-color); color: var(--pencil-color);
+            font-family: 'Kalam', cursive; padding: 5px 15px; border-radius: 15px; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tool-btn:hover { background: var(--pencil-color); color: white; transform: rotate(-2deg); }
+
+        /* --- Smart Styling (The "Perfect Student" Look) --- */
+        
+        /* Headers in Red Ink */
+        h1 { 
+            font-size: 2.8rem; 
+            text-decoration: underline; 
+            text-decoration-color: var(--margin-color); 
+            text-decoration-style: wavy; 
+            transform: rotate(-1deg); 
+            color: var(--ink-main);
+        }
+        
+        h2 {
+            color: var(--ink-accent); /* Red headers */
+            font-size: 1.6rem; 
+            margin-top: 2rem; 
+            margin-bottom: 0.5rem; 
+            font-weight: 700;
+            display: inline-block;
+            transform: rotate(-0.5deg);
+        }
+
+        /* Main lists in Blue Ink */
+        ul { list-style-type: none; padding-left: 1rem; color: var(--ink-main); }
+        li::before { content: "->"; margin-right: 0.5rem; color: var(--ink-accent); font-weight: bold; }
+        li { margin-bottom: 0.5rem; }
+
+        /* Highlights */
+        .highlight-marker {
+            background: linear-gradient(104deg, transparent 0%, var(--highlight) 1%, var(--highlight) 98%, transparent 100%);
+            padding: 0 4px; border-radius: 4px;
+        }
+
+        .circle-red {
+            border: 2px solid var(--ink-accent); 
+            border-radius: 95% 4% 92% 5% / 4% 95% 6% 95%;
+            padding: 0 6px; 
+            color: var(--ink-accent); 
+            font-weight: bold;
+            display: inline-block; 
+            transform: rotate(-2deg);
+        }
+
+        /* Analogy Box - "Doodled" Style */
+        .analogy-box {
+            border: 2px solid var(--ink-note);
+            border-radius: 10px 255px 10px 255px / 255px 10px 225px 10px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            background: rgba(255, 255, 255, 0.4);
+            position: relative;
+            color: var(--ink-note); /* Green Ink */
+        }
+        .analogy-icon {
+            position: absolute; top: -20px; right: -10px; font-size: 3rem; transform: rotate(15deg);
+        }
+        .analogy-title {
+            margin-top: 0; font-weight: bold; text-decoration: underline; font-size: 1.2rem;
+        }
+
+        /* Line by Line Cornell Style */
+        .cornell-table { width: 100%; border-collapse: separate; border-spacing: 0 10px; margin-top: 1rem; }
+        .cornell-code {
+            font-family: 'Courier Prime', monospace; font-size: 0.9rem; color: #444;
+            width: 40%; vertical-align: top; padding: 10px;
+            border-right: 2px solid var(--line-color);
+        }
+        .cornell-note {
+            font-family: 'Kalam', cursive; font-size: 1.1rem; color: var(--ink-main);
+            padding: 10px 10px 10px 20px; vertical-align: top;
+        }
+        
+        /* Diagram Container (Sketch Style) */
+        .diagram-container {
+            margin: 2rem 0; padding: 1.5rem;
+            border: 3px dashed var(--ink-sketch); 
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2); 
+            position: relative;
+        }
+        .diagram-label {
+            position: absolute; top: -15px; left: 20px; background: var(--paper-color);
+            padding: 0 10px; font-weight: bold; color: var(--ink-sketch);
+            border: 1px solid var(--ink-sketch);
+            border-radius: 5px;
+            transform: rotate(-2deg);
+        }
+
+        /* Quiz Styling */
+        .quiz-slip {
+            background-color: #f0f0f0; border: 1px solid #ccc; padding: 1rem;
+            margin: 1rem 0; box-shadow: 3px 3px 5px rgba(0,0,0,0.1); transform: rotate(1deg);
+            display: none; font-family: 'Courier Prime', monospace;
+        }
+        .quiz-option { cursor: pointer; padding: 4px 5px; display: block; transition: background 0.2s; }
+        .quiz-option:hover { background-color: rgba(0,0,0,0.05); }
+        .correct-answer { color: green; font-weight: bold; }
+        .wrong-answer { color: red; text-decoration: line-through; }
+
+        /* Loader */
+        .scribble-loader { display: none; width: 60px; height: 60px; margin: 20px auto; }
+        
+        /* Mermaid overrides for "Pencil" look */
+        .mermaid { display: flex; justify-content: center; }
+        .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon {
+            stroke: var(--ink-sketch) !important;
+            stroke-width: 2px !important;
+            fill: transparent !important;
+        }
+        .mermaid .edgePath .path {
+            stroke: var(--ink-sketch) !important;
+            stroke-width: 2px !important;
+        }
+
+        /* --- PERFECT PRINT STYLES --- */
+        @media print {
+            @page {
+                size: A4;
+                margin: 0; /* Remove default page margins to let notebook fill it */
+            }
+            
+            body { 
+                background: none !important; 
+                padding: 0 !important;
+                margin: 0 !important;
+                -webkit-print-color-adjust: exact !important; 
+                print-color-adjust: exact !important;
+            }
+            
+            .notebook-page {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: 100vh !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+                padding: 2rem 2rem 2rem 4rem !important; /* Adjust print padding */
+                /* Force background color and image to print */
+                background-color: var(--paper-color) !important;
+                background-image: 
+                    linear-gradient(90deg, transparent 79px, var(--margin-color) 79px, var(--margin-color) 81px, transparent 81px),
+                    linear-gradient(var(--line-color) 1px, transparent 1px) !important;
+                page-break-inside: avoid;
+            }
+
+            /* Hide UI Elements */
+            .ai-tools, .sticky-note, .scribble-loader, button, #inputSection { 
+                display: none !important; 
+            }
+            
+            /* Ensure Quiz Prints if active */
+            .quiz-slip { 
+                display: block !important; 
+                border: 1px dashed black !important;
+                box-shadow: none !important;
+                break-inside: avoid;
+            }
+
+            /* Adjust Colors for high contrast print */
+            h1, h2, p, li, td { 
+                color: black !important; 
+                text-shadow: none !important;
+            }
+            
+            /* Keep visual cues simple */
+            .highlight-marker { background: #eee !important; border-bottom: 2px solid #ccc; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="notebook-page" id="notebook">
+        <div class="content-layer">
+            <h1 id="page-title">Class Notes</h1>
+            <p style="text-align: right; font-size: 0.9rem; margin-top: -10px; margin-right: 10px; color: var(--ink-main);" id="date-display"></p>
+
+            <div class="sticky-note" id="inputSection">
+                <p style="font-size: 1.1rem; font-weight: bold; margin-bottom: 5px; text-align: center;">Subject / Topic:</p>
+                <textarea id="code-input" rows="6" placeholder="Paste content from any subject: 
+- History dates & events
+- Biology notes or processes
+- Math formulas & problems
+- Literature quotes or themes
+- Computer Science code"></textarea>
+                <button class="action-btn" id="explain-btn" onclick="generateNotes()">Create Perfect Notes</button>
+            </div>
+
+            <div class="scribble-loader" id="loader">
+                <svg viewBox="0 0 100 100">
+                    <path d="M10,50 Q20,10 40,50 T70,50 T90,50" stroke="var(--margin-color)" stroke-width="3" fill="none">
+                        <animate attributeName="d" values="M10,50 Q20,10 40,50 T70,50 T90,50; M10,50 Q20,90 40,50 T70,50 T90,50; M10,50 Q20,10 40,50 T70,50 T90,50" dur="0.4s" repeatCount="indefinite"/>
+                    </path>
+                </svg>
+            </div>
+
+            <div id="result-container" style="display:none;">
+                <div class="ai-tools">
+                    <button class="tool-btn" onclick="window.print()">🖨️ Save/Print</button>
+                    <button class="tool-btn" id="tts-btn" onclick="readAloud()">✨ Listen</button>
+                    <button class="tool-btn" id="quiz-btn" onclick="generateQuiz()">✨ Pop Quiz</button>
+                </div>
+
+                <div id="output"></div>
+
+                <div class="quiz-slip" id="quiz-container">
+                    <h3 style="text-align: center; border-bottom: 2px double #333; margin-bottom: 10px;">POP QUIZ (Draft)</h3>
+                    <div id="quiz-content"></div>
+                </div>
+
+                <div style="margin-top: 3rem; text-align: center;">
+                    <button onclick="location.reload()" style="background: transparent; border: 2px dashed var(--pencil-color); padding: 10px 20px; font-family: 'Kalam', cursive; font-size: 1.2rem; cursor: pointer; color: var(--pencil-color); transform: rotate(1deg);">+ New Page</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiKey = ""; // Environment provided
+        document.getElementById('date-display').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        
+        let generatedTextForTTS = "";
+        let audioContext = null;
+
+        mermaid.initialize({ 
+            startOnLoad: false,
+            theme: 'neutral', 
+            fontFamily: 'Kalam',
+            securityLevel: 'loose',
+            themeVariables: {
+                primaryColor: '#ffffff',
+                edgeLabelBackground: '#ffffff',
+                tertiaryColor: '#ffffff',
+                lineColor: '#2d3436', // Charcoal
+                fontFamily: 'Kalam',
+                fontSize: '16px'
+            }
+        });
+
+        async function generateNotes() {
+            const codeInput = document.getElementById('code-input').value;
+            const outputDiv = document.getElementById('output');
+            const resultContainer = document.getElementById('result-container');
+            const loader = document.getElementById('loader');
+            const inputSection = document.getElementById('inputSection');
+
+            if (!codeInput.trim()) { alert("Please write a topic or paste code first!"); return; }
+
+            inputSection.style.display = 'none';
+            loader.style.display = 'block';
+
+            // Senior Dev Prompt: Universal Subject Handling
+            const systemPrompt = `
+                You are a top-tier student creating "perfect" study notes for ANY subject. 
+                Analyze the input and identify the subject (History, Math, Biology, Literature, Coding, etc.).
+                
+                Return a JSON object with this structure:
+                {
+                    "subject": "Detected Subject",
+                    "title": "A short, catchy title for the notes",
+                    "gist": "One sentence summary of the core concept.",
+                    "analogy": "A simple, real-world metaphor (e.g., 'Mitosis is like a photocopier' or 'A loop is like a playlist on repeat').",
+                    "explanation": ["Point 1", "Point 2 (keep it short)"],
+                    "section_type": "Label for detailed breakdown (e.g., 'Timeline', 'Process Steps', 'Key Terms', 'Code Analysis', 'Character Analysis')",
+                    "breakdown": [
+                        { "left": "Year / Term / Step / Code Line", "right": "Description / Definition / Explanation" }
+                    ],
+                    "diagram_mermaid": "valid mermaid graph definition starting with 'graph TD;\\n'. Create a flowchart, timeline, or concept map suitable for the subject. Use semicolons or newlines. Keep node labels short (alphanumeric). No brackets/parentheses inside labels."
+                }
+
+                Styling Instructions:
+                - Use <span class='highlight-marker'> for key terms.
+                - Use <span class='circle-red'> for numbers or dates.
+                - Write in a clean, helpful tone.
+            `;
+
+            try {
+                const responseText = await callGemini(systemPrompt, codeInput, true);
+                const data = JSON.parse(responseText.replace(/```json/g, '').replace(/```/g, ''));
+
+                // Save for TTS
+                generatedTextForTTS = data.gist + ". " + data.analogy + ". " + data.explanation.join(". ");
+
+                // Safety fix for Mermaid formatting
+                let mermaidDef = data.diagram_mermaid;
+                if (mermaidDef && !mermaidDef.includes('\n') && !mermaidDef.includes(';')) {
+                    mermaidDef = mermaidDef.replace('graph TD', 'graph TD;\n');
+                }
+                if (mermaidDef && !mermaidDef.startsWith('graph')) {
+                    mermaidDef = 'graph TD;\n' + mermaidDef;
+                }
+                
+                let html = `
+                    <h2 style="margin-top:0;">${data.title}</h2>
+                    <p style="font-size: 1.2rem; margin-bottom: 1rem;">${data.gist}</p>
+
+                    <div class="analogy-box">
+                        <div class="analogy-icon">💡</div>
+                        <div class="analogy-title">Real World Logic:</div>
+                        <p style="font-style: italic;">"${data.analogy}"</p>
+                    </div>
+
+                    <div class="diagram-container">
+                        <span class="diagram-label">Visual Concept</span>
+                        <div class="mermaid">
+                            ${mermaidDef}
+                        </div>
+                    </div>
+
+                    <h2>Core Notes</h2>
+                    <ul>
+                        ${data.explanation.map(item => `<li>${item}</li>`).join('')}
+                    </ul>
+
+                    <h2>${data.section_type || 'Deep Dive'}</h2>
+                    <table class="cornell-table">
+                        ${data.breakdown.map(row => `
+                            <tr>
+                                <td class="cornell-code">${escapeHtml(row.left)}</td>
+                                <td class="cornell-note">
+                                    <span style="color:var(--ink-accent); font-weight:bold;">&rarr;</span>
+                                    ${row.right}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                `;
+
+                outputDiv.innerHTML = html;
+                resultContainer.style.display = 'block';
+
+                await mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+
+            } catch (error) {
+                console.error(error);
+                if (error.message.includes('Parse error')) {
+                    alert("Diagram doodle messed up! Try generating again.");
+                } else {
+                    alert("My pen ran out of ink! (API Error)");
+                }
+                inputSection.style.display = 'block';
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        // --- Feature: Quiz ---
+        async function generateQuiz() {
+            const codeInput = document.getElementById('code-input').value;
+            const btn = document.getElementById('quiz-btn');
+            btn.disabled = true; btn.innerText = "Drafting...";
+
+            const prompt = `Generate JSON: [{"q":"Question","options":["A","B"],"correct":0}] (3 questions) based on this subject/topic.`;
+            
+            try {
+                const text = await callGemini(prompt, codeInput, true);
+                const questions = JSON.parse(text.replace(/```json|```/g, ''));
+                
+                let html = questions.map((q, i) => `
+                    <div style="margin-bottom: 15px;">
+                        <p><strong>Q${i+1}:</strong> ${q.q}</p>
+                        ${q.options.map((opt, oi) => `
+                            <div class="quiz-option" onclick="checkAnswer(this, ${oi}, ${q.correct})">[ ] ${opt}</div>
+                        `).join('')}
+                    </div>
+                `).join('');
+                
+                document.getElementById('quiz-content').innerHTML = html;
+                document.getElementById('quiz-container').style.display = 'block';
+                document.getElementById('quiz-container').scrollIntoView({behavior:'smooth'});
+            } catch(e) { console.error(e); } finally { btn.disabled = false; btn.innerText = "✨ Pop Quiz"; }
+        }
+
+        window.checkAnswer = function(el, selected, correct) {
+            if(el.parentElement.dataset.answered) return;
+            el.parentElement.dataset.answered = 'true';
+            const opts = el.parentElement.querySelectorAll('.quiz-option');
+            if(selected === correct) {
+                el.classList.add('correct-answer'); el.innerText = el.innerText.replace('[ ]', '[✔]');
+            } else {
+                el.classList.add('wrong-answer'); el.innerText = el.innerText.replace('[ ]', '[✘]');
+                opts[correct].classList.add('correct-answer'); opts[correct].innerText = opts[correct].innerText.replace('[ ]', '[✔]');
+            }
+        }
+
+        // --- Feature: TTS ---
+        async function readAloud() {
+            if (!generatedTextForTTS) return;
+            const btn = document.getElementById('tts-btn');
+            btn.disabled = true; btn.innerText = "Generating Audio...";
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: "Here are your notes. " + generatedTextForTTS }] }],
+                generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } } }
+            };
+
+            try {
+                const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if(data.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
+                    await playPCM(data.candidates[0].content.parts[0].inlineData.data);
+                }
+            } catch(e) { console.error(e); } finally { btn.disabled = false; btn.innerText = "✨ Listen"; }
+        }
+
+        async function playPCM(base64) {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const floats = new Float32Array(bytes.length / 2);
+            const ints = new Int16Array(bytes.buffer);
+            for (let i = 0; i < ints.length; i++) floats[i] = ints[i] / 32768.0;
+            
+            const buffer = audioContext.createBuffer(1, floats.length, 24000);
+            buffer.getChannelData(0).set(floats);
+            const src = audioContext.createBufferSource();
+            src.buffer = buffer; src.connect(audioContext.destination); src.start(0);
+        }
+
+        async function callGemini(sys, user, json=false) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: user }] }],
+                systemInstruction: { parts: [{ text: sys }] },
+                generationConfig: json ? { responseMimeType: "application/json" } : {}
+            };
+            const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
